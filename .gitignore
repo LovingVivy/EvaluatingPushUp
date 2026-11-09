@@ -1,0 +1,30 @@
+# Python & Virtual Environment
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+.claude/
+
+# Heavy datasets, archives & MediaPipe task bundles
+Data/
+*.zip
+*.npz
+*.task
+
+# Videos, demo outputs & temporary test files
+demo/
+*.mp4
+*.avi
+ket_qua.csv
+test.csv
+
+# Manual inspection images & video clips (keep only nhan_loi_bad.csv)
+kiem_tra_bad/*.png
+kiem_tra_bad/gan_nhan_rep/
+
+# Reports & Slides
+bao_cao/
+slide/
+*.pdf
+*.docx

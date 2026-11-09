@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chấm điểm chống đẩy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --bg: #f4f2ec; --surface: #fdfcfa; --surface-2: #efede6; --line: #dcd8cd;
+    --ink: #16202e; --ink-2: #44505f; --muted: #6b7582;
+    --blue: #2466c8; --blue-soft: #e3ecf8; --orange: #e0672f;
+    --ok: #1e8e4e; --ok-soft: #e1f3e8; --bad: #d03b3b; --bad-soft: #fbe3e1;
+    --warn: #b97800; --warn-soft: #fbefd6; --na: #7d8590; --na-soft: #eceef0;
+    --radius: 16px; --shadow: 0 1px 2px rgba(22,32,46,.06), 0 8px 24px rgba(22,32,46,.06);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--ink); font: 15px/1.5 "Be Vietnam Pro", "Segoe UI", system-ui, sans-serif; min-height: 100vh; }
+  button { font: inherit; cursor: pointer; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+
+  header { background: var(--ink); color: #f3f1ea; }
+  header .wrap { display: flex; align-items: center; gap: 16px; padding-top: 14px; padding-bottom: 14px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 12px; margin-right: auto; }
+  .brand svg { flex: none; }
+  .brand h1 { font-size: 19px; font-weight: 700; margin: 0; letter-spacing: .2px; }
+  .brand p { margin: 0; font-size: 13px; color: #b9c4d0; }
+  .seg { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #b9c4d0; }
+  .seg .opts { display: flex; background: #22303f; border-radius: 10px; padding: 3px; }
+  .seg button { border: 0; background: transparent; color: #d4dbe3; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 500; }
+  .seg button[aria-pressed="true"] { background: #f3f1ea; color: var(--ink); }
+  .seg button:focus-visible { outline: 2px solid var(--orange); outline-offset: 1px; }
+
+  main.wrap { padding-top: 28px; padding-bottom: 48px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .hidden { display: none !important; }
+
+  /* ---------- màn hình chọn video ---------- */
+  #drop { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px;
+          min-height: 360px; padding: 48px 24px; border: 2px dashed #c4beb0; background: var(--surface); border-radius: 22px;
+          cursor: pointer; transition: border-color .15s, background .15s; }
+  #drop:hover, #drop:focus-visible { border-color: var(--blue); background: #fbfcfe; outline: none; }
+  #drop .icon { width: 76px; height: 76px; border-radius: 22px; background: var(--blue-soft); display: grid; place-items: center; }
+  #drop h2 { margin: 6px 0 0; font-size: 26px; font-weight: 700; }
+  #drop p { margin: 0; color: var(--ink-2); }
+  .pill-btn { display: inline-flex; align-items: center; gap: 8px; border: 0; background: var(--blue); color: #fff; padding: 10px 18px; border-radius: 999px; font-weight: 600; }
+  .pill-btn:hover { background: #1d58ae; }
+  .formats { font-size: 13px; color: var(--muted) !important; }
+  .tips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 18px; }
+  .tip { padding: 16px 18px; display: flex; gap: 12px; align-items: flex-start; }
+  .tip b { display: block; font-size: 14px; }
+  .tip span { font-size: 13px; color: var(--ink-2); }
+  .tip .dot { flex: none; width: 30px; height: 30px; border-radius: 9px; background: var(--surface-2); display: grid; place-items: center; color: var(--blue); font-weight: 700; }
+
+  /* ---------- đang xử lý ---------- */
+  #busy { padding: 40px; display: flex; flex-direction: column; gap: 18px; max-width: 720px; margin: 40px auto; }
+  #busy .name { font-weight: 600; font-size: 17px; word-break: break-all; }
+  .bar { height: 10px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+  .bar > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--blue), #4a8be0); border-radius: 99px; transition: width .3s; }
+  .row-between { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; color: var(--ink-2); }
+  .note { font-size: 13px; color: var(--muted); margin: 0; }
+
+  /* ---------- kết quả ---------- */
+  #results { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+  .player { padding: 14px; }
+  .stage { position: relative; background: #0d141d; border-radius: 12px; overflow: hidden; }
+  .stage video { display: block; width: 100%; max-height: 62vh; background: #0d141d; }
+  .stage canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .badge-now { position: absolute; left: 12px; top: 12px; padding: 7px 12px; border-radius: 10px; font-weight: 700; font-size: 15px;
+               background: rgba(13,20,29,.78); color: #fff; display: flex; gap: 8px; align-items: center; max-width: calc(100% - 120px); }
+  .badge-now .sw { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .count-now { position: absolute; right: 14px; top: 8px; font-size: 54px; font-weight: 700; color: #fff; line-height: 1;
+               text-shadow: 0 2px 10px rgba(0,0,0,.55); font-variant-numeric: tabular-nums; }
+  .video-msg { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: #d4dbe3; padding: 20px; background: #0d141d; }
+
+  .chart { margin-top: 14px; }
+  .chart-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--ink-2); margin-bottom: 6px; gap: 12px; flex-wrap: wrap; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  #chart { width: 100%; height: 132px; display: block; cursor: pointer; border-radius: 10px; background: var(--surface-2); }
+
+  .side { display: flex; flex-direction: column; gap: 16px; }
+  .summary { padding: 20px; }
+  .big { font-size: 56px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  .big-label { color: var(--ink-2); margin-top: 6px; }
+  .chips { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+  .chip { border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; }
+  .chip b { font-size: 22px; font-variant-numeric: tabular-nums; }
+  .chip span { font-size: 13px; }
+  .info { padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+  .info .k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .6px; font-weight: 600; }
+  .info .v { font-weight: 600; }
+  .warn-box { background: var(--warn-soft); color: #6b4700; border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+  .actions { display: flex; flex-direction: column; gap: 10px; }
+  .btn { display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line); background: var(--surface);
+         color: var(--ink); border-radius: 12px; padding: 11px 14px; font-weight: 600; text-decoration: none; }
+  .btn:hover { border-color: #b8b2a3; background: #fff; }
+  .btn.primary { background: var(--ink); color: #f3f1ea; border-color: var(--ink); }
+  .btn.primary:hover { background: #24344a; }
+  .btn[disabled] { opacity: .6; cursor: default; }
+
+  .table-card { grid-column: 1 / -1; padding: 6px 0 4px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 600; padding: 12px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 10px 14px; border-bottom: 1px solid #ebe8df; vertical-align: middle; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: #f7f5ef; }
+  tbody tr.active { background: var(--blue-soft); }
+  tbody tr:last-child td { border-bottom: 0; }
+  .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tag { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-weight: 600; font-size: 13px; white-space: nowrap; }
+  .pbar { display: flex; align-items: center; gap: 8px; min-width: 104px; }
+  .pbar .track { flex: 1; height: 6px; border-radius: 9px; background: var(--surface-2); overflow: hidden; min-width: 48px; }
+  .pbar .fill { height: 100%; border-radius: 9px; }
+  .pbar em { font-style: normal; font-variant-numeric: tabular-nums; width: 34px; text-align: right; color: var(--ink-2); font-size: 13px; }
+  .dim { color: var(--muted); }
+
+  #dragover { position: fixed; inset: 0; background: rgba(22,32,46,.72); display: grid; place-items: center; z-index: 50; }
+  #dragover div { border: 3px dashed #f3f1ea; border-radius: 26px; color: #f3f1ea; padding: 60px 80px; font-size: 26px; font-weight: 700; text-align: center; }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: #f3f1ea; padding: 12px 18px;
+           border-radius: 12px; box-shadow: var(--shadow); z-index: 60; max-width: calc(100% - 32px); }
+  .error-card { padding: 28px; max-width: 720px; margin: 40px auto; display: flex; flex-direction: column; gap: 14px; }
+  .error-card h2 { margin: 0; color: var(--bad); font-size: 20px; }
+
+  @media (max-width: 980px) {
+    #results { grid-template-columns: 1fr; }
+    .tips { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="brand">
+      <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
+        <rect width="40" height="40" rx="11" fill="#22303f"/>
+        <polyline points="9,31 11,23 12,15 25,19 30,23 35,27" fill="none" stroke="#e0672f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="9" cy="10" r="3.2" fill="none" stroke="#e0672f" stroke-width="2.2"/>
+        <circle cx="11" cy="23" r="2" fill="#f3f1ea"/><circle cx="12" cy="15" r="2" fill="#f3f1ea"/><circle cx="25" cy="19" r="2" fill="#f3f1ea"/>
+        <circle cx="30" cy="23" r="2" fill="#f3f1ea"/><circle cx="35" cy="27" r="2" fill="#f3f1ea"/>
+      </svg>
+      <div>
+        <h1>Chấm điểm chống đẩy</h1>
+        <p>Kéo video vào để đếm rep và kiểm tra từng lần chống đẩy</p>
+      </div>
+    </div>
+    <div class="seg" role="group" aria-label="Góc quay">
+      <span>Góc quay</span>
+      <div class="opts" id="viewOpts">
+        <button data-view="auto" aria-pressed="true">Tự động</button>
+        <button data-view="front" aria-pressed="false">Trước</button>
+        <button data-view="side" aria-pressed="false">Ngang</button>
+        <button data-view="diagonal" aria-pressed="false">Chéo</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- Chọn video -->
+  <section id="pick">
+    <div id="drop" tabindex="0" role="button" aria-label="Chọn video để phân tích">
+      <div class="icon">
+        <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#2466c8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2.5" y="5" width="14" height="14" rx="3"/><path d="M16.5 10.5 21.5 7.5v9l-5-3"/><path d="M9.5 9v6M6.5 12l3-3 3 3"/>
+        </svg>
+      </div>
+      <h2>Kéo thả video vào đây</h2>
+      <p>Hệ thống sẽ tìm khung xương, đếm rep và kết luận đúng hay sai cho từng rep.</p>
+      <button class="pill-btn" type="button" id="chooseBtn">Chọn video từ máy</button>
+      <p class="formats">MP4, MOV, AVI, MKV hoặc WEBM · video được xử lý ngay trên máy này</p>
+      <input type="file" id="fileInput" accept="video/*,.mp4,.mov,.m4v,.avi,.mkv,.webm" hidden>
+    </div>
+    <div class="tips">
+      <div class="card tip"><div class="dot">1</div><div><b>Đặt máy ngang tầm sàn</b><span>Máy đứng yên, cách người tập khoảng 2–3 mét.</span></div></div>
+      <div class="card tip"><div class="dot">2</div><div><b>Thấy trọn người</b><span>Từ đầu tới bàn chân đều nằm trong khung hình.</span></div></div>
+      <div class="card tip"><div class="dot">3</div><div><b>Ưu tiên góc ngang</b><span>Góc ngang đánh giá được cả ba lỗi; góc trước không thấy lỗi hông.</span></div></div>
+    </div>
+  </section>
+
+  <!-- Đang xử lý -->
+  <section id="busy" class="card hidden" aria-live="polite">
+    <div class="name" id="busyName"></div>
+    <div class="bar"><div id="busyBar"></div></div>
+    <div class="row-between"><span id="busyStage">Đang tải video lên</span><span id="busyPct">0%</span></div>
+    <p class="note">Video 30 giây thường mất khoảng 20–40 giây. Mọi thứ chạy trên máy này, không gửi đi đâu.</p>
+  </section>
+
+  <!-- Lỗi -->
+  <section id="failed" class="card error-card hidden">
+    <h2>Không phân tích được video này</h2>
+    <p id="failedMsg"></p>
+    <div><button class="btn primary" id="failedBack" type="button">Chọn video khác</button></div>
+  </section>
+
+  <!-- Kết quả -->
+  <section id="results" class="hidden">
+    <div class="card player">
+      <div class="stage" id="stage">
+        <video id="video" controls playsinline preload="metadata"></video>
+        <canvas id="overlay"></canvas>
+        <div class="badge-now hidden" id="badgeNow"><span class="sw" id="badgeSw"></span><span id="badgeText"></span></div>
+        <div class="count-now" id="countNow">0</div>
+        <div class="video-msg hidden" id="videoMsg"></div>
+      </div>
+      <div class="chart">
+        <div class="chart-head">
+          <span id="chartTitle">Tín hiệu lên/xuống</span>
+          <div class="legend">
+            <span><i style="background:var(--ok)"></i>Đúng</span>
+            <span><i style="background:var(--bad)"></i>Sai</span>
+            <span><i style="background:var(--warn)"></i>Không chắc</span>
+            <span><i style="background:var(--na)"></i>Không đánh giá được</span>
+          </div>
+        </div>
+        <svg id="chart" viewBox="0 0 1000 132" preserveAspectRatio="none" role="img" aria-label="Biểu đồ tín hiệu lên xuống theo thời gian, các rep được tô màu theo kết luận. Bấm để tua tới thời điểm đó."></svg>
+      </div>
+    </div>
+
+    <aside class="side">
+      <div class="card summary">
+        <div class="big" id="sumCount">0</div>
+        <div class="big-label">rep được tìm thấy</div>
+        <div class="chips" id="sumChips"></div>
+      </div>
+      <div class="card info" id="infoCard"></div>
+      <div class="actions">
+        <button class="btn primary" id="exportBtn" type="button">Tạo video đã chấm (.webm)</button>
+        <a class="btn hidden" id="exportLink" href="#">Tải video đã chấm</a>
+        <button class="btn" id="csvBtn" type="button">Tải bảng kết quả (.csv)</button>
+        <button class="btn" id="againBtn" type="button">Phân tích lại với góc quay đã chọn</button>
+        <button class="btn" id="newBtn" type="button">Chọn video khác</button>
+      </div>
+    </aside>
+
+    <div class="card table-card">
+      <table>
+        <thead><tr>
+          <th>Rep</th><th>Thời gian</th><th>Kết luận</th><th>Lỗi</th><th>Điểm</th>
+          <th>Sai</th><th>Nông</th><th>Hông</th><th>Sập</th>
+        </tr></thead>
+        <tbody id="repRows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<div id="dragover" class="hidden"><div>Thả video vào đây để phân tích</div></div>
+<div id="toast" class="hidden" role="status"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const VERDICT = {
+  dung:           { label: "Đúng",                color: "var(--ok)",   soft: "var(--ok-soft)",   hex: "#1e8e4e" },
+  sai:            { label: "Sai",                 color: "var(--bad)",  soft: "var(--bad-soft)",  hex: "#d03b3b" },
+  khong_chac:     { label: "Không chắc",          color: "var(--warn)", soft: "var(--warn-soft)", hex: "#b97800" },
+  khong_danh_gia: { label: "Không đánh giá được", color: "var(--na)",   soft: "var(--na-soft)",   hex: "#7d8590" },
+};
+const ERR = { nong: "xuống chưa đủ sâu", hong: "hông võng / mông nhô", sap: "đổ sập / chân chạm sàn" };
+const VIEW = { front: "Góc trước", side: "Góc ngang", diagonal: "Góc chéo" };
+
+let view = "auto", file = null, objectUrl = null, job = null, R = null, pollTimer = null;
+
+// ------------------------------------------------------------------ chọn góc quay
+document.querySelectorAll("#viewOpts button").forEach((b) => b.addEventListener("click", () => {
+  view = b.dataset.view;
+  document.querySelectorAll("#viewOpts button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+}));
+
+// ------------------------------------------------------------------ chọn / kéo thả video
+$("drop").addEventListener("click", (e) => { if (e.target.id !== "fileInput") $("fileInput").click(); });
+$("drop").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("fileInput").click(); } });
+$("fileInput").addEventListener("change", () => { if ($("fileInput").files[0]) startFile($("fileInput").files[0]); $("fileInput").value = ""; });
+let dragDepth = 0;
+window.addEventListener("dragenter", (e) => { if ([...(e.dataTransfer?.types || [])].includes("Files")) { dragDepth++; $("dragover").classList.remove("hidden"); } });
+window.addEventListener("dragleave", () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) $("dragover").classList.add("hidden"); });
+window.addEventListener("dragover", (e) => e.preventDefault());
+window.addEventListener("drop", (e) => {
+  e.preventDefault(); dragDepth = 0; $("dragover").classList.add("hidden");
+  const f = [...(e.dataTransfer?.files || [])].find((x) => x.type.startsWith("video/") || /\.(mp4|mov|m4v|avi|mkv|webm)$/i.test(x.name));
+  if (f) startFile(f); else toast("Hãy thả một file video (MP4, MOV, AVI, MKV hoặc WEBM).");
+});
+
+function show(id) {
+  for (const s of ["pick", "busy", "failed", "results"]) $(s).classList.toggle("hidden", s !== id);
+}
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.remove("hidden");
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => t.classList.add("hidden"), 4200);
+}
+
+function startFile(f) {
+  file = f;
+  if (objectUrl) URL.revokeObjectURL(objectUrl);
+  objectUrl = URL.createObjectURL(f);
+  upload();
+}
+
+function upload() {
+  clearTimeout(pollTimer);
+  show("busy");
+  $("busyName").textContent = file.name;
+  setBusy("Đang tải video lên", 0);
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", `/api/analyze?view=${view}&name=${encodeURIComponent(file.name)}`);
+  xhr.setRequestHeader("Content-Type", "application/octet-stream");
+  xhr.upload.onprogress = (e) => { if (e.lengthComputable) setBusy("Đang tải video lên", 0.05 * e.loaded / e.total, true); };
+  xhr.onload = () => {
+    let data = {}; try { data = JSON.parse(xhr.responseText); } catch (_) {}
+    if (xhr.status !== 200) return fail(data.error || "Máy chủ báo lỗi khi nhận video.");
+    job = data.job;
+    history.replaceState(null, "", `?job=${job}`);
+    poll();
+  };
+  xhr.onerror = () => fail("Không kết nối được tới máy chủ. Chương trình app\\server.py còn đang chạy không?");
+  xhr.send(file);
+}
+
+function setBusy(stage, value, uploading) {
+  $("busyStage").textContent = stage;
+  const pct = Math.round(100 * (uploading ? value : 0.05 + 0.95 * value));
+  $("busyBar").style.width = pct + "%";
+  $("busyPct").textContent = pct + "%";
+}
+
+async function poll() {
+  try {
+    const res = await fetch(`/api/job/${job}`);
+    const s = await res.json();
+    if (!res.ok) return fail(s.error || "Không tìm thấy phiên phân tích.");
+    if (s.state === "done") return showResults(s);
+    if (s.state === "error") return fail(s.error);
+    $("busyName").textContent = s.name;
+    setBusy(s.state === "queued" ? "Đang chờ video trước xử lý xong" : s.stage, s.progress);
+  } catch (_) { return fail("Mất kết nối với máy chủ."); }
+  pollTimer = setTimeout(poll, 400);
+}
+
+function fail(msg) {
+  $("failedMsg").textContent = msg;
+  show("failed");
+}
+$("failedBack").onclick = $("newBtn").onclick = () => {
+  history.replaceState(null, "", location.pathname);
+  $("video").pause(); show("pick");
+};
+$("againBtn").onclick = () => {
+  if (file) upload();
+  else toast("Hãy chọn lại video để phân tích lại (trang đã được tải lại nên trình duyệt không còn giữ file).");
+};
+
+// ------------------------------------------------------------------ hiển thị kết quả
+function showResults(s) {
+  R = s.result;
+  show("results");
+  const video = $("video");
+  $("videoMsg").classList.add("hidden");
+  video.src = objectUrl && file && file.name === s.name ? objectUrl : `/api/job/${s.id}/video`;
+  video.dataset.fallback = "";
+  exportState(s.renders.export);
+  renderSummary(s);
+  renderTable();
+  renderChart();
+  requestAnimationFrame(drawOverlay);
+}
+
+$("video").addEventListener("error", async () => {
+  const video = $("video");
+  if (!R || video.dataset.fallback) {
+    $("videoMsg").textContent = "Trình duyệt không phát được video này.";
+    $("videoMsg").classList.remove("hidden");
+    return;
+  }
+  // Định dạng trình duyệt không phát được (ví dụ AVI): nhờ máy chủ chuyển sang WebM
+  video.dataset.fallback = "1";
+  $("videoMsg").textContent = "Trình duyệt không phát được định dạng này. Đang chuyển video sang WebM…";
+  $("videoMsg").classList.remove("hidden");
+  await fetch(`/api/job/${job}/render/preview`, { method: "POST" });
+  const wait = async () => {
+    const s = await (await fetch(`/api/job/${job}`)).json();
+    const r = s.renders.preview;
+    if (r && r.state === "done") { video.src = `/api/job/${job}/render/preview`; $("videoMsg").classList.add("hidden"); return; }
+    if (r && r.state === "error") { $("videoMsg").textContent = "Không chuyển được video: " + r.error; return; }
+    $("videoMsg").textContent = `Đang chuyển video sang WebM… ${Math.round(100 * (r ? r.progress : 0))}%`;
+    setTimeout(wait, 600);
+  };
+  wait();
+});
+
+function renderSummary(s) {
+  const c = R.counts, n = R.reps.length;
+  $("sumCount").textContent = n;
+  $("sumChips").innerHTML = Object.entries(VERDICT).map(([k, v]) =>
+    `<div class="chip" style="background:${v.soft}"><b style="color:${v.color}">${c[k]}</b><span>${v.label}</span></div>`).join("");
+  const viewText = VIEW[R.view] + (R.view_mode === "auto" ? " · tự nhận diện" : " · chọn tay");
+  const fmtTime = (x) => `${Math.floor(x / 60)}:${String(Math.round(x % 60)).padStart(2, "0")}`;
+  $("infoCard").innerHTML = `
+    <div><div class="k">Video</div><div class="v" style="word-break:break-all">${esc(s.name)}</div></div>
+    <div><div class="k">Góc quay</div><div class="v">${viewText}</div></div>
+    <div><div class="k">Thời lượng · phát hiện người</div><div class="v">${fmtTime(R.duration)} · ${Math.round(100 * R.detect_rate)}% số khung</div></div>
+    <div><div class="k">Thời gian xử lý</div><div class="v">${R.elapsed} giây</div></div>
+    ${R.view === "front" ? `<div class="warn-box">Góc trước: lỗi hông bị thân che nên không được đánh giá. Quay từ bên hông nếu muốn kiểm tra lỗi này.</div>` : ""}
+    ${n === 0 ? `<div class="warn-box">Không tìm thấy rep nào. Hãy kiểm tra video có thấy rõ người tập, hoặc thử chọn góc quay bằng tay.</div>` : ""}
+    ${R.detect_rate < 0.6 ? `<div class="warn-box">Chỉ phát hiện được người ở ${Math.round(100 * R.detect_rate)}% số khung. Kết quả có thể thiếu chính xác.</div>` : ""}`;
+}
+
+function esc(t) { return String(t).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch])); }
+
+function pbar(value, color, off) {
+  if (value == null || off) return `<span class="dim">–</span>`;
+  return `<div class="pbar"><div class="track"><div class="fill" style="width:${Math.round(100 * value)}%;background:${color}"></div></div><em>${value.toFixed(2)}</em></div>`;
+}
+
+function renderTable() {
+  const front = R.view === "front";
+  $("repRows").innerHTML = R.reps.map((r) => {
+    const v = VERDICT[r.verdict];
+    const errs = r.errors.length ? r.errors.map((e) => ERR[e]).join(", ") : `<span class="dim">–</span>`;
+    const p = r.p || {};
+    return `<tr data-rep="${r.number}">
+      <td class="num"><b>${r.number}</b></td>
+      <td class="num">${r.start.toFixed(1)}–${r.end.toFixed(1)} s</td>
+      <td><span class="tag" style="background:${v.soft};color:${v.color}">${v.label}</span></td>
+      <td>${errs}</td>
+      <td class="num">${r.score == null ? '<span class="dim">–</span>' : r.score.toFixed(2)}</td>
+      <td>${pbar(p.sai, "#44505f")}</td><td>${pbar(p.nong, "#2466c8")}</td>
+      <td>${pbar(p.hong, "#2466c8", front)}</td><td>${pbar(p.sap, "#2466c8")}</td></tr>`;
+  }).join("") || `<tr><td colspan="9" class="dim" style="text-align:center;padding:22px">Không có rep nào.</td></tr>`;
+  document.querySelectorAll("#repRows tr[data-rep]").forEach((tr) => tr.addEventListener("click", () => {
+    const r = R.reps[Number(tr.dataset.rep) - 1];
+    $("video").currentTime = r.start; $("video").play();
+  }));
+}
+
+// ------------------------------------------------------------------ biểu đồ tín hiệu
+function renderChart() {
+  const svg = $("chart"), W = 1000, H = 132, pad = 10, sig = R.signal, n = sig.length;
+  const dur = n / R.fps;
+  $("chartTitle").textContent = R.view === "front" ? "Độ cao vai so với cổ tay theo thời gian" : "Góc khuỷu tay theo thời gian";
+  if (!n) { svg.innerHTML = ""; return; }
+  let lo = Math.min(...sig), hi = Math.max(...sig); if (hi - lo < 1e-6) hi = lo + 1;
+  const x = (t) => (t / dur) * W, y = (s) => pad + (1 - (s - lo) / (hi - lo)) * (H - 2 * pad - 14);
+  const bands = R.reps.map((r) => {
+    const v = VERDICT[r.verdict], x0 = x(r.start), x1 = x(r.end);
+    return `<rect x="${x0}" y="0" width="${Math.max(1, x1 - x0)}" height="${H}" fill="${v.hex}" fill-opacity="0.12"/>
+            <rect x="${x0 + 1}" y="${H - 8}" width="${Math.max(1, x1 - x0 - 2)}" height="8" rx="2" fill="${v.hex}"/>`;
+  }).join("");
+  const path = sig.map((s, i) => `${i ? "L" : "M"}${x(i / R.fps).toFixed(1)},${y(s).toFixed(1)}`).join("");
+  const labels = R.reps.map((r) => `<text x="${x((r.start + r.end) / 2)}" y="${H - 13}" font-size="11" text-anchor="middle" fill="#44505f" font-family="Be Vietnam Pro, Segoe UI, sans-serif">${r.number}</text>`).join("");
+  svg.innerHTML = `${bands}<path d="${path}" fill="none" stroke="#16202e" stroke-width="1.6" vector-effect="non-scaling-stroke"/>${labels}
+    <line id="playhead" x1="0" x2="0" y1="0" y2="${H}" stroke="#e0672f" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+}
+$("chart").addEventListener("click", (e) => {
+  if (!R) return;
+  const box = $("chart").getBoundingClientRect();
+  $("video").currentTime = ((e.clientX - box.left) / box.width) * (R.signal.length / R.fps);
+});
+
+// ------------------------------------------------------------------ vẽ khung xương lên video
+const overlay = $("overlay"), ctx = overlay.getContext("2d");
+function contentRect(video) {
+  const cw = video.clientWidth, ch = video.clientHeight, vw = video.videoWidth || R.width, vh = video.videoHeight || R.height;
+  const s = Math.min(cw / vw, ch / vh), w = vw * s, h = vh * s;
+  return { x: (cw - w) / 2, y: (ch - h) / 2, w, h, cw, ch };
+}
+function framesAt(t) {
+  const f = t * R.fps, k = Math.max(0, Math.min(R.frames.length - 1, Math.floor(f))), a = R.frames[k], b = R.frames[Math.min(k + 1, R.frames.length - 1)];
+  if (!a) return b && Math.abs(f - k - 1) < 0.5 ? b : null;
+  if (!b) return a;
+  const u = Math.min(1, Math.max(0, f - k));
+  return a.map((p, j) => [p[0] + (b[j][0] - p[0]) * u, p[1] + (b[j][1] - p[1]) * u, Math.min(p[2], b[j][2])]);
+}
+function drawOverlay() {
+  requestAnimationFrame(drawOverlay);
+  if (!R || $("results").classList.contains("hidden")) return;
+  const video = $("video"), dpr = window.devicePixelRatio || 1, rc = contentRect(video);
+  if (overlay.width !== Math.round(rc.cw * dpr) || overlay.height !== Math.round(rc.ch * dpr)) {
+    overlay.width = Math.round(rc.cw * dpr); overlay.height = Math.round(rc.ch * dpr);
+    overlay.style.width = rc.cw + "px"; overlay.style.height = rc.ch + "px";
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, rc.cw, rc.ch);
+  const t = video.currentTime || 0, kp = framesAt(t);
+  if (kp) {
+    const P = (j) => [rc.x + kp[j][0] * rc.w, rc.y + kp[j][1] * rc.h], th = Math.max(2, rc.h / 150);
+    const sure = R.edges.filter(([a, b]) => Math.min(kp[a][2], kp[b][2]) > 0.5), unsure = R.edges.filter((e) => !sure.includes(e));
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "rgba(210,214,220,.75)"; ctx.lineWidth = Math.max(1.5, th * 0.6);
+    for (const [a, b] of unsure) { ctx.beginPath(); ctx.moveTo(...P(a)); ctx.lineTo(...P(b)); ctx.stroke(); }
+    ctx.shadowColor = "rgba(57,211,83,.9)"; ctx.shadowBlur = th * 3; ctx.strokeStyle = "#7cf28c"; ctx.lineWidth = th;
+    for (const [a, b] of sure) { ctx.beginPath(); ctx.moveTo(...P(a)); ctx.lineTo(...P(b)); ctx.stroke(); }
+    ctx.shadowBlur = 0;
+    const sureJ = new Set(sure.flat());
+    for (let j = 0; j < kp.length; j++) {
+      const [px, py] = P(j);
+      ctx.beginPath(); ctx.arc(px, py, sureJ.has(j) ? th + 2 : th, 0, 2 * Math.PI);
+      ctx.fillStyle = sureJ.has(j) ? "#ffffff" : "rgba(210,214,220,.85)"; ctx.fill();
+      if (sureJ.has(j)) { ctx.lineWidth = 2; ctx.strokeStyle = "#1e8e4e"; ctx.stroke(); }
+    }
+  }
+  // rep hiện tại, số rep đã xong, vạch thời gian trên biểu đồ, dòng đang phát trong bảng
+  const cur = R.reps.find((r) => t >= r.start && t <= r.end) || [...R.reps].reverse().find((r) => r.end < t);
+  $("countNow").textContent = R.reps.filter((r) => r.end <= t).length;
+  if (cur) {
+    const v = VERDICT[cur.verdict];
+    $("badgeSw").style.background = v.hex;
+    $("badgeText").textContent = `Rep ${cur.number}: ${v.label}` + (cur.errors.length ? ` · ${cur.errors.map((e) => ERR[e]).join(", ")}` : "");
+    $("badgeNow").classList.remove("hidden");
+  } else $("badgeNow").classList.add("hidden");
+  const ph = document.getElementById("playhead");
+  if (ph) { const xx = (t / (R.signal.length / R.fps)) * 1000; ph.setAttribute("x1", xx); ph.setAttribute("x2", xx); }
+  document.querySelectorAll("#repRows tr[data-rep]").forEach((tr) => tr.classList.toggle("active", cur && Number(tr.dataset.rep) === cur.number && t <= cur.end));
+}
+
+// ------------------------------------------------------------------ xuất kết quả
+$("csvBtn").onclick = () => {
+  const head = ["rep", "bat_dau_s", "ket_thuc_s", "thoi_luong_s", "goc_quay", "ket_luan", "loi", "diem", "p_sai", "p_nong", "p_hong", "p_sap", "bien_do"];
+  const rows = R.reps.map((r) => [r.number, r.start, r.end, r.duration, R.view, VERDICT[r.verdict].label, r.errors.map((e) => ERR[e]).join("; "),
+    r.score ?? "", r.p?.sai ?? "", r.p?.nong ?? "", r.p?.hong ?? "", r.p?.sap ?? "", r.amplitude]);
+  const csv = "﻿" + [head, ...rows].map((row) => row.map((c) => /[",\n]/.test(String(c)) ? `"${String(c).replace(/"/g, '""')}"` : c).join(",")).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  a.download = (($("infoCard").querySelector(".v")?.textContent || "video").replace(/\.[^.]+$/, "")) + "_ket_qua.csv";
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+
+function exportState(r) {
+  const btn = $("exportBtn"), link = $("exportLink");
+  link.classList.add("hidden"); btn.classList.remove("hidden"); btn.disabled = false;
+  if (!r) { btn.textContent = "Tạo video đã chấm (.webm)"; return; }
+  if (r.state === "done") { btn.classList.add("hidden"); link.href = `/api/job/${job}/render/export`; link.classList.remove("hidden"); return; }
+  if (r.state === "error") { btn.textContent = "Tạo lại video đã chấm"; toast("Không tạo được video: " + r.error); return; }
+  btn.disabled = true; btn.textContent = `Đang tạo video… ${Math.round(100 * r.progress)}%`;
+}
+$("exportBtn").onclick = async () => {
+  const r = await (await fetch(`/api/job/${job}/render/export`, { method: "POST" })).json();
+  exportState(r);
+  const wait = async () => {
+    const s = await (await fetch(`/api/job/${job}`)).json();
+    exportState(s.renders.export);
+    if (s.renders.export && !["done", "error"].includes(s.renders.export.state)) setTimeout(wait, 700);
+  };
+  wait();
+};
+
+// ------------------------------------------------------------------ mở lại kết quả khi tải lại trang (?job=...)
+const resume = new URLSearchParams(location.search).get("job");
+if (resume) {
+  job = resume;
+  fetch(`/api/job/${job}`).then(async (res) => {
+    const s = await res.json();
+    if (!res.ok) { history.replaceState(null, "", location.pathname); toast(s.error); return; }
+    if (s.state === "done") showResults(s);
+    else if (s.state === "error") fail(s.error);
+    else { show("busy"); poll(); }
+  }).catch(() => toast("Không kết nối được tới máy chủ."));
+}
+</script>
+</body>
+</html>
